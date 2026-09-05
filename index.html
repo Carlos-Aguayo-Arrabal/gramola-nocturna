@@ -521,6 +521,7 @@
       </div>
       <div class="chips" id="chips"></div>
       <div class="song-grid" id="songGrid"></div>
+      <div id="ytResults"></div>
     </div>
 
     <div class="panel">
@@ -672,6 +673,13 @@
   var ADMIN_PIN = '1234';
   var STORE_KEY = 'sinfonola_state_v1';
 
+  /* ---------------- YouTube search (canciones fuera del catálogo) ----------------
+     Clave de la API de YouTube Data v3. Debe restringirse en Google Cloud Console
+     a "Referencias HTTP (sitios web)" = https://carlos-aguayo-arrabal.github.io/gramola-nocturna/*
+     para que nadie más pueda gastar la cuota gratuita usándola desde otra web. */
+  var YT_API_KEY = 'PON_AQUI_TU_API_KEY_DE_YOUTUBE';
+  var EXTERNAL_SONGS = {}; // canciones encontradas por búsqueda en YouTube, fuera del catálogo fijo
+
   /* ---------------- state ---------------- */
   var state = loadState();
 
@@ -705,6 +713,7 @@
 
   function findSong(id){
     for(var i=0;i<CATALOG.length;i++){ if(CATALOG[i].id === id) return CATALOG[i]; }
+    if(EXTERNAL_SONGS[id]) return EXTERNAL_SONGS[id];
     return null;
   }
 
@@ -737,6 +746,7 @@
   /* ---------------- rendering: chips ---------------- */
   var activeGenre = 'all';
   var searchTerm = '';
+  var searchTermRaw = '';
   var chipsEl = document.getElementById('chips');
   GENRES.forEach(function(g){
     var b = document.createElement('button');
@@ -752,12 +762,14 @@
   });
 
   document.getElementById('searchInput').addEventListener('input', function(e){
-    searchTerm = normalize(e.target.value.trim());
+    searchTermRaw = e.target.value.trim();
+    searchTerm = normalize(searchTermRaw);
     renderCatalog();
   });
 
   /* ---------------- rendering: catalog ---------------- */
   var songGrid = document.getElementById('songGrid');
+  var ytResultsEl = document.getElementById('ytResults');
 
   function songStatus(id){
     if(state.nowPlaying && state.nowPlaying.songId === id) return 'playing';
@@ -775,10 +787,27 @@
     if(list.length === 0){
       var empty = document.createElement('div');
       empty.className = 'no-results';
-      empty.textContent = 'No hay canciones que coincidan con tu búsqueda.';
+      if(searchTermRaw){
+        empty.textContent = 'No hay canciones que coincidan con tu búsqueda en el catálogo.';
+        empty.appendChild(document.createElement('br'));
+        var ytBtn = document.createElement('button');
+        ytBtn.className = 'admin-action';
+        ytBtn.style.cssText = 'max-width:280px;margin:14px auto 0;text-align:center;';
+        ytBtn.textContent = '🔎 Buscar "' + searchTermRaw + '" en YouTube';
+        ytBtn.addEventListener('click', function(){ searchYouTube(searchTermRaw); });
+        empty.appendChild(ytBtn);
+      }else{
+        empty.textContent = 'No hay canciones que coincidan con tu búsqueda.';
+      }
       songGrid.appendChild(empty);
+      if(searchTermRaw && ytSearchCache[searchTerm]){
+        renderYouTubeResults(ytSearchCache[searchTerm], searchTermRaw);
+      }else{
+        ytResultsEl.innerHTML = '';
+      }
       return;
     }
+    ytResultsEl.innerHTML = '';
     list.forEach(function(song){
       var status = songStatus(song.id);
       var card = document.createElement('div');
@@ -1175,6 +1204,119 @@
       toast('Este navegador no admite reproducir audio (Web Audio API). Prueba con Chrome o Safari actualizados.', true);
     }
   });
+
+  /* ---------------- YouTube search: helpers ---------------- */
+  var ytSearchCache = {};
+  var ytSearchBusy = false;
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function parseISODuration(iso){
+    var m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || '');
+    if(!m) return 240;
+    var h = parseInt(m[1] || 0, 10), mi = parseInt(m[2] || 0, 10), s = parseInt(m[3] || 0, 10);
+    return h*3600 + mi*60 + s;
+  }
+
+  function searchYouTube(query){
+    if(!query) return;
+    if(!YT_API_KEY || YT_API_KEY.indexOf('PON_AQUI') === 0){
+      toast('Falta configurar la clave de la API de YouTube en el código (YT_API_KEY).', true);
+      return;
+    }
+    if(ytSearchBusy) return;
+    var cacheKey = normalize(query);
+    if(ytSearchCache[cacheKey]){
+      renderYouTubeResults(ytSearchCache[cacheKey], query);
+      return;
+    }
+    ytSearchBusy = true;
+    ytResultsEl.innerHTML = '<div class="no-results">Buscando "' + escapeHtml(query) + '" en YouTube…</div>';
+    var searchUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=6&q=' + encodeURIComponent(query) + '&key=' + YT_API_KEY;
+    fetch(searchUrl).then(function(r){
+      return r.json().then(function(data){ return { ok:r.ok, status:r.status, data:data }; });
+    }).then(function(res){
+      if(!res.ok){
+        var msg = (res.data && res.data.error && res.data.error.message) || ('HTTP ' + res.status);
+        throw new Error(msg);
+      }
+      var items = (res.data.items || []).filter(function(it){ return it.id && it.id.videoId; });
+      if(items.length === 0){
+        ytResultsEl.innerHTML = '<div class="no-results">Sin resultados en YouTube para "' + escapeHtml(query) + '".</div>';
+        ytSearchBusy = false;
+        return;
+      }
+      var ids = items.map(function(it){ return it.id.videoId; }).join(',');
+      var detailsUrl = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=' + ids + '&key=' + YT_API_KEY;
+      return fetch(detailsUrl).then(function(r2){ return r2.json(); }).then(function(detailsData){
+        var durById = {};
+        (detailsData.items || []).forEach(function(v){ durById[v.id] = parseISODuration(v.contentDetails && v.contentDetails.duration); });
+        var results = items.map(function(it, idx){
+          var vid = it.id.videoId;
+          var thumbs = it.snippet.thumbnails || {};
+          var thumb = (thumbs.medium || thumbs.default || {}).url || '';
+          return {
+            id: 'yt_' + vid,
+            code: 'YT',
+            title: it.snippet.title,
+            artist: it.snippet.channelTitle,
+            genre: 'youtube',
+            dur: durById[vid] || 240,
+            art: idx % 5,
+            yt: vid,
+            thumb: thumb,
+            external: true
+          };
+        });
+        ytSearchCache[cacheKey] = results;
+        renderYouTubeResults(results, query);
+        ytSearchBusy = false;
+      });
+    }).catch(function(err){
+      ytResultsEl.innerHTML = '<div class="no-results">No se pudo buscar en YouTube ahora mismo (' + escapeHtml(err.message) + ').</div>';
+      ytSearchBusy = false;
+    });
+  }
+
+  function renderYouTubeResults(results, query){
+    var wrap = document.createElement('div');
+    var note = document.createElement('div');
+    note.style.cssText = 'grid-column:1/-1;font-size:12.5px;color:var(--text-faint);margin:4px 0 10px;';
+    note.textContent = 'Resultados de YouTube para "' + query + '" — fuera del catálogo habitual.';
+    wrap.appendChild(note);
+    var grid = document.createElement('div');
+    grid.className = 'song-grid';
+    results.forEach(function(song){
+      EXTERNAL_SONGS[song.id] = song;
+      var status = songStatus(song.id);
+      var card = document.createElement('div');
+      card.className = 'song-card';
+      var badge = status === 'playing' ? '<span class="art-badge playing">Sonando</span>' : (status === 'queued' ? '<span class="art-badge queued">En cola</span>' : '');
+      var artInner = song.thumb
+        ? '<img src="' + song.thumb + '" alt="" style="width:100%;height:100%;object-fit:cover;">'
+        : NOTE_SVG;
+      card.innerHTML =
+        '<div class="art art-' + song.art + '" style="padding:0;">' + artInner + '<span class="art-code">' + song.code + '</span>' + badge + '</div>' +
+        '<div class="song-meta">' +
+          '<div class="song-title">' + escapeHtml(song.title) + '</div>' +
+          '<div class="song-artist">' + escapeHtml(song.artist) + '</div>' +
+        '</div>' +
+        '<div class="song-foot">' +
+          '<span class="song-dur">' + fmtTime(song.dur) + '</span>' +
+          '<button class="add-btn" ' + (status ? 'disabled' : '') + '>' + (status ? 'Añadida' : ('+ ' + fmtPrice(state.price))) + '</button>' +
+        '</div>';
+      if(!status){
+        card.querySelector('.add-btn').addEventListener('click', function(){ openPay(song); });
+      }
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
+    ytResultsEl.innerHTML = '';
+    ytResultsEl.appendChild(wrap);
+  }
 
   /* ---------------- init ---------------- */
   document.getElementById('priceTag').textContent = fmtPrice(state.price);
