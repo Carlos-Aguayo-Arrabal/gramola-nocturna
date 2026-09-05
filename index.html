@@ -813,8 +813,9 @@
       var card = document.createElement('div');
       card.className = 'song-card';
       var badge = status === 'playing' ? '<span class="art-badge playing">Sonando</span>' : (status === 'queued' ? '<span class="art-badge queued">En cola</span>' : '');
+      var artInner = song.yt ? '<img src="https://img.youtube.com/vi/'+song.yt+'/hqdefault.jpg" alt="" style="width:100%;height:100%;object-fit:cover;">' : NOTE_SVG;
       card.innerHTML =
-        '<div class="art art-'+song.art+'">' + NOTE_SVG + '<span class="art-code">'+song.code+'</span>' + badge + '</div>' +
+        '<div class="art art-'+song.art+'">' + artInner + '<span class="art-code">'+song.code+'</span>' + badge + '</div>' +
         '<div class="song-meta">' +
           '<div class="song-title">'+song.title+'</div>' +
           '<div class="song-artist">'+song.artist+'</div>' +
