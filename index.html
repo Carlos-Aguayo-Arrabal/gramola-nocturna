@@ -787,6 +787,7 @@
   var activeGenre = 'all';
   var searchTerm = '';
   var searchTermRaw = '';
+  var lastCatalogEmpty = false;
   var chipsEl = document.getElementById('chips');
   GENRES.forEach(function(g){
     var b = document.createElement('button');
@@ -806,6 +807,12 @@
     searchTerm = normalize(searchTermRaw);
     renderCatalog();
   });
+  document.getElementById('searchInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      if(searchTermRaw && lastCatalogEmpty){ searchYouTube(searchTermRaw); }
+    }
+  });
 
   /* ---------------- rendering: catalog ---------------- */
   var songGrid = document.getElementById('songGrid');
@@ -824,6 +831,7 @@
       if(searchTerm && normalize(s.title+' '+s.artist).indexOf(searchTerm) === -1) return false;
       return true;
     });
+    lastCatalogEmpty = (list.length === 0);
     songGrid.innerHTML = '';
     if(list.length === 0){
       var empty = document.createElement('div');
