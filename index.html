@@ -139,8 +139,30 @@
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     font-size:28px; color:var(--text-faint);
   }
-  @media (max-width: 560px){
-    .np-video-wrap{ width:110px; height:66px; }
+  /* Below ~700px the 3-column grid (video | info | right) doesn't have room:
+     title/artist get squeezed to near-unreadable ellipsis and the right column
+     (code, count, fullscreen button) starts overlapping the info text. Stack
+     everything into full-width rows instead. */
+  @media (max-width: 700px){
+    .now-playing{
+      grid-template-columns:1fr;
+      grid-template-areas:"video" "info" "right";
+      row-gap:12px;
+      padding:16px;
+    }
+    .np-video-wrap{ grid-area:video; width:100%; max-width:280px; height:auto; aspect-ratio:16/9; margin:0 auto; }
+    .np-info{ grid-area:info; }
+    .np-title, .np-artist{ white-space:normal; }
+    .np-right{
+      grid-area:right; width:100%;
+      flex-direction:row; flex-wrap:wrap;
+      align-items:center; justify-content:space-between; gap:10px 14px;
+    }
+    .np-right .fullscreen-btn{ margin-top:0; }
+  }
+  @media (max-width: 420px){
+    .np-title{ font-size:17px; }
+    .np-time{ font-size:16px; min-width:auto; }
   }
   .np-info{ min-width:0; }
   .np-eyebrow{
