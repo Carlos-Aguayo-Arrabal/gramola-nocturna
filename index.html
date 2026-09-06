@@ -703,6 +703,7 @@
       price: 1.00,
       paused: false,
       requestCounts: {},
+      savedExternal: {},
       nowPlaying: { songId:'f2', startedAt: now - 38000 },
       queue: [
         {qid: 'seed1', songId:'p1'},
@@ -718,6 +719,7 @@
       var parsed = JSON.parse(raw);
       if(!parsed || typeof parsed !== 'object') return defaultState();
       if(!parsed.requestCounts) parsed.requestCounts = {};
+      if(!parsed.savedExternal) parsed.savedExternal = {};
       return parsed;
     }catch(e){
       return defaultState();
@@ -730,6 +732,7 @@
   function findSong(id){
     for(var i=0;i<CATALOG.length;i++){ if(CATALOG[i].id === id) return CATALOG[i]; }
     if(EXTERNAL_SONGS[id]) return EXTERNAL_SONGS[id];
+    if(state.savedExternal && state.savedExternal[id]) return state.savedExternal[id];
     return null;
   }
 
@@ -794,7 +797,8 @@
   }
 
   function renderCatalog(){
-    var list = CATALOG.filter(function(s){
+    var fullCatalog = CATALOG.concat(Object.keys(state.savedExternal || {}).map(function(id){ return state.savedExternal[id]; }));
+    var list = fullCatalog.filter(function(s){
       if(activeGenre !== 'all' && s.genre !== activeGenre) return false;
       if(searchTerm && normalize(s.title+' '+s.artist).indexOf(searchTerm) === -1) return false;
       return true;
@@ -996,6 +1000,7 @@
       setTimeout(function(){
         state.queue.push({ qid: 'q'+Date.now(), songId: pendingSong.id });
         state.requestCounts[pendingSong.id] = (state.requestCounts[pendingSong.id]||0) + 1;
+        if(pendingSong.external){ state.savedExternal[pendingSong.id] = pendingSong; }
         var pos = state.queue.length;
         saveState();
         closePay();
