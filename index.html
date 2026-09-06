@@ -288,6 +288,34 @@
   .search-box input::placeholder{ color:var(--text-faint); }
   .search-box svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:0.5; }
 
+  .lists-heading{
+    font-size:11.5px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase;
+    color:var(--text-faint); margin-bottom:8px;
+  }
+  .lists-row{ display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; margin-bottom:8px; }
+  .list-card{
+    flex:none; width:152px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:14px; padding:12px; cursor:pointer;
+    transition:border-color 0.15s, background 0.15s, transform 0.1s;
+  }
+  .list-card:hover{ border-color:var(--text-faint); }
+  .list-card.active{ border-color:var(--pink); background:rgba(255,63,127,0.14); }
+  .list-card .lc-emoji{ font-size:22px; line-height:1; }
+  .list-card .lc-title{ font-size:13px; font-weight:700; color:var(--text); margin-top:8px; }
+  .list-card .lc-time{ font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .list-desc{
+    font-size:12.5px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border);
+    border-radius:10px; padding:10px 12px; margin-bottom:14px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .list-desc[hidden]{ display:none; }
+  .list-desc strong{ color:var(--text); }
+  .list-desc button{
+    background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px;
+    text-decoration:underline; flex:none; font-family:var(--font-body);
+  }
+  .list-desc button:hover{ color:var(--text); }
+
   .chips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
   .chip{
     background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
@@ -562,6 +590,9 @@
       <div class="panel-head">
         <div class="panel-title">Catálogo</div>
       </div>
+      <div class="lists-heading">Listas para tu noche</div>
+      <div class="lists-row" id="listsRow"></div>
+      <div class="list-desc" id="listDesc" hidden></div>
       <div class="search-row">
         <div class="search-box">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -710,7 +741,16 @@
     {id:'c2', code:'C2', title:'La Bamba', artist:'Ritchie Valens', genre:'clasico', dur:123, art:4, yt:'8Zle7lz0rnU'},
     {id:'c3', code:'C3', title:'I Will Survive', artist:'Gloria Gaynor', genre:'clasico', dur:197, art:0, yt:'fCR0ep31-6U'},
     {id:'c4', code:'C4', title:'Macarena', artist:'Los del Río', genre:'clasico', dur:184, art:1, yt:'qxa9C2ESdrc'},
-    {id:'c5', code:'C5', title:'Zombie', artist:'The Cranberries', genre:'clasico', dur:306, art:2, yt:'6Ejga4kJUts'}
+    {id:'c5', code:'C5', title:'Zombie', artist:'The Cranberries', genre:'clasico', dur:306, art:2, yt:'6Ejga4kJUts'},
+    {id:'f7', code:'F7', title:'Baile Inolvidable', artist:'Bad Bunny', genre:'fiesta', dur:378, art:1, yt:'a1Femq4NPxs'},
+    {id:'f8', code:'F8', title:'Ni Borracho', artist:'Quevedo', genre:'fiesta', dur:281, art:2, yt:'Cp2nGBXIkfE'},
+    {id:'f9', code:'F9', title:'KOKO', artist:'Omar Courtz', genre:'fiesta', dur:195, art:3, yt:'slmRkI1xAqk'},
+    {id:'f10', code:'F10', title:'De Lejitos', artist:'Jay Wheeler', genre:'fiesta', dur:225, art:4, yt:'Fsr14-8sxtA'},
+    {id:'f11', code:'F11', title:'La Graciosa', artist:'Quevedo ft. Elvis Crespo', genre:'fiesta', dur:282, art:0, yt:'LZPLBSRnxSY'},
+    {id:'p7', code:'P7', title:'Dardos', artist:'Romeo Santos & Prince Royce', genre:'pop', dur:247, art:2, yt:'7KrNh9YaeDg'},
+    {id:'p8', code:'P8', title:'La Perla', artist:'Rosalía & Yahritza Y Su Esencia', genre:'pop', dur:209, art:3, yt:'GkTWxDB21cA'},
+    {id:'r10', code:'R10', title:'Every Breath You Take', artist:'The Police', genre:'rock', dur:228, art:1, yt:'OMOGaugKpzs'},
+    {id:'c6', code:'C6', title:'Thriller', artist:'Michael Jackson', genre:'clasico', dur:201, art:3, yt:'4V90AmXnguw'}
   ];
   var GENRES = [
     {id:'all', label:'Todas'},
@@ -719,6 +759,42 @@
     {id:'rock', label:'Rock'},
     {id:'indie', label:'Indie / Dance'},
     {id:'clasico', label:'Clásicos'}
+  ];
+
+  /* ---------------- listas para tu noche (playlists curadas por tipo de bar) ---------------- */
+  var LISTS = [
+    {
+      id:'copas',
+      emoji:'🍹',
+      label:'Bar de copas',
+      time:'23:00 – cierre',
+      desc:'Reggaetón y ritmo latino para llenar la pista en un bar de ambiente fiestero.',
+      songIds:['f7','f8','f11','f9','f10','p7','p8','f1','f5','f4']
+    },
+    {
+      id:'terraza',
+      emoji:'🌇',
+      label:'Terraza / Aperitivo',
+      time:'18:00 – 22:00',
+      desc:'Pop comercial animado para la hora del tardeo, sin agobiar.',
+      songIds:['p6','p1','p5','p3','p2','p4','i2','i1','f6','f3']
+    },
+    {
+      id:'rockero',
+      emoji:'🎸',
+      label:'Pub rockero',
+      time:'Noche cerrada',
+      desc:'Rock español e internacional para un público que quiere corear.',
+      songIds:['i4','r2','r3','r4','r6','r7','r1','r5','c5','r10']
+    },
+    {
+      id:'discobar',
+      emoji:'🪩',
+      label:'Discobar',
+      time:'01:00 – 04:00',
+      desc:'Clásicos ochenteros y noventeros que garantizan que nadie se siente.',
+      songIds:['i3','i6','i5','c3','c1','c4','c2','c6','f2','p1']
+    }
   ];
   var ART_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V5l12-2v13"/></svg>';
   // simpler music-note icon (filled) for canvas-free svg
@@ -814,6 +890,7 @@
 
   /* ---------------- rendering: chips ---------------- */
   var activeGenre = 'all';
+  var activeList = null;
   var searchTerm = '';
   var searchTermRaw = '';
   var lastCatalogEmpty = false;
@@ -825,11 +902,56 @@
     b.dataset.genre = g.id;
     b.addEventListener('click', function(){
       activeGenre = g.id;
+      activeList = null;
       Array.prototype.forEach.call(chipsEl.children, function(c){ c.classList.toggle('active', c.dataset.genre === g.id); });
+      listDescEl.hidden = true;
+      renderLists();
       renderCatalog();
     });
     chipsEl.appendChild(b);
   });
+
+  /* ---------------- rendering: listas para tu noche ---------------- */
+  var listsRowEl = document.getElementById('listsRow');
+  var listDescEl = document.getElementById('listDesc');
+  function renderLists(){
+    listsRowEl.innerHTML = '';
+    LISTS.forEach(function(l){
+      var card = document.createElement('div');
+      card.className = 'list-card' + (activeList === l.id ? ' active' : '');
+      card.innerHTML =
+        '<div class="lc-emoji">'+l.emoji+'</div>' +
+        '<div class="lc-title">'+l.label+'</div>' +
+        '<div class="lc-time">'+l.time+'</div>';
+      card.addEventListener('click', function(){ toggleList(l); });
+      listsRowEl.appendChild(card);
+    });
+  }
+  function toggleList(l){
+    if(activeList === l.id){
+      activeList = null;
+      listDescEl.hidden = true;
+    }else{
+      activeList = l.id;
+      activeGenre = 'all';
+      Array.prototype.forEach.call(chipsEl.children, function(c){ c.classList.toggle('active', c.dataset.genre === 'all'); });
+      listDescEl.hidden = false;
+      listDescEl.innerHTML = '<span>'+l.emoji+' <strong>'+l.label+'</strong> ('+l.time+') — '+l.desc+'</span>';
+      var clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.textContent = '✕ Ver catálogo completo';
+      clearBtn.addEventListener('click', function(){
+        activeList = null;
+        listDescEl.hidden = true;
+        renderLists();
+        renderCatalog();
+      });
+      listDescEl.appendChild(clearBtn);
+    }
+    renderLists();
+    renderCatalog();
+  }
+  renderLists();
 
   document.getElementById('searchInput').addEventListener('input', function(e){
     searchTermRaw = e.target.value.trim();
@@ -854,12 +976,22 @@
   }
 
   function renderCatalog(){
-    var fullCatalog = CATALOG.concat(Object.keys(state.savedExternal || {}).map(function(id){ return state.savedExternal[id]; }));
-    var list = fullCatalog.filter(function(s){
-      if(activeGenre !== 'all' && s.genre !== activeGenre) return false;
-      if(searchTerm && normalize(s.title+' '+s.artist).indexOf(searchTerm) === -1) return false;
-      return true;
-    });
+    var list;
+    if(activeList){
+      var listDef = null;
+      for(var li=0; li<LISTS.length; li++){ if(LISTS[li].id === activeList){ listDef = LISTS[li]; break; } }
+      list = (listDef ? listDef.songIds : []).map(findSong).filter(function(s){ return !!s; });
+      if(searchTerm){
+        list = list.filter(function(s){ return normalize(s.title+' '+s.artist).indexOf(searchTerm) !== -1; });
+      }
+    }else{
+      var fullCatalog = CATALOG.concat(Object.keys(state.savedExternal || {}).map(function(id){ return state.savedExternal[id]; }));
+      list = fullCatalog.filter(function(s){
+        if(activeGenre !== 'all' && s.genre !== activeGenre) return false;
+        if(searchTerm && normalize(s.title+' '+s.artist).indexOf(searchTerm) === -1) return false;
+        return true;
+      });
+    }
     lastCatalogEmpty = (list.length === 0);
     songGrid.innerHTML = '';
     if(list.length === 0){
