@@ -717,6 +717,13 @@
   var state = loadState();
   var isDisplayMode = /(^|[?&])display=1(&|$)/.test(location.search);
   if(isDisplayMode){ document.body.classList.add('display-mode'); }
+  var displayWindowRef = null;
+  function syncMuteState(){
+    if(isDisplayMode) return;
+    if(!yt.ready || !yt.player) return;
+    var open = !!(displayWindowRef && !displayWindowRef.closed);
+    try{ if(open){ yt.player.mute(); } else { yt.player.unMute(); } }catch(e){}
+  }
 
   function defaultState(){
     var now = Date.now();
@@ -1187,7 +1194,8 @@
       events: {
         onReady: function(){
           yt.ready = true;
-          try{ yt.player.unMute(); yt.player.setVolume(100); }catch(e){}
+          try{ yt.player.setVolume(100); if(isDisplayMode){ yt.player.unMute(); } }catch(e){}
+          syncMuteState();
           applyDesiredAudio();
           checkAudioBlocked();
         },
@@ -1236,10 +1244,10 @@
   if(fullscreenBtn){
     fullscreenBtn.addEventListener('click', function(){
       var w = window.open(location.pathname + '?display=1', 'gramolaDisplay');
-      if(w){ try{ w.focus(); }catch(e){} }
+      if(w){ try{ w.focus(); }catch(e){} displayWindowRef = w; syncMuteState(); }
     });
   }
-  setInterval(checkAudioBlocked, 2000);
+  setInterval(function(){ syncMuteState(); checkAudioBlocked(); }, 2000);
 
   // Independent test tone (Web Audio API, no YouTube involved) so it's obvious
   // whether a silent gramola is a device/volume problem or a YouTube-loading
