@@ -353,6 +353,14 @@
     font-size:12.5px; color:var(--text-faint);
   }
   .queue-footer b{ color:var(--text-dim); font-family:var(--font-led); font-size:16px; }
+  .panel-top{ grid-column: 1 / -1; }
+  .top-list{ display:flex; flex-direction:column; gap:8px; }
+  .top-row{ display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:9px 10px; }
+  .top-rank{ font-family:var(--font-led); font-size:18px; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none; background:var(--surface-3); color:var(--text-dim); }
+  .top-rank.rank-1{ background:linear-gradient(155deg, #f4e2b0, #c9973d); color:#3a2600; }
+  .top-rank.rank-2{ background:linear-gradient(155deg, #e7e7ec, #a8a8b4); color:#2a2a2e; }
+  .top-rank.rank-3{ background:linear-gradient(155deg, #e0a878, #a8683a); color:#3a1e06; }
+  .top-count{ font-size:12px; color:var(--text-faint); flex:none; margin-left:auto; }
 
   /* ---------- admin gear ---------- */
   .admin-fab{
@@ -535,6 +543,12 @@
       </div>
     </div>
   </div>
+    <div class="panel panel-top">
+      <div class="panel-head">
+        <div class="panel-title">🏆 Top pedidas</div>
+      </div>
+      <div class="top-list" id="topList"></div>
+    </div>
 
   <div class="footnote">Prototipo de demostración — el audio se reproduce desde YouTube, los pagos son simulados y no se realiza ningún cargo real.
     <br><button id="beepBtn" type="button" style="margin-top:8px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);font-size:11.5px;padding:6px 12px;border-radius:100px;cursor:pointer;">🔔 Probar sonido del dispositivo</button>
@@ -688,6 +702,7 @@
     return {
       price: 1.00,
       paused: false,
+      requestCounts: {},
       nowPlaying: { songId:'f2', startedAt: now - 38000 },
       queue: [
         {qid: 'seed1', songId:'p1'},
@@ -702,6 +717,7 @@
       if(!raw) return defaultState();
       var parsed = JSON.parse(raw);
       if(!parsed || typeof parsed !== 'object') return defaultState();
+      if(!parsed.requestCounts) parsed.requestCounts = {};
       return parsed;
     }catch(e){
       return defaultState();
@@ -979,6 +995,7 @@
       payStatus.textContent = '¡Pago aceptado!';
       setTimeout(function(){
         state.queue.push({ qid: 'q'+Date.now(), songId: pendingSong.id });
+        state.requestCounts[pendingSong.id] = (state.requestCounts[pendingSong.id]||0) + 1;
         var pos = state.queue.length;
         saveState();
         closePay();
@@ -1321,9 +1338,41 @@
 
   /* ---------------- init ---------------- */
   document.getElementById('priceTag').textContent = fmtPrice(state.price);
+    function renderTopRequested(){
+    var topListEl = document.getElementById('topList');
+    if(!topListEl) return;
+    var counts = state.requestCounts || {};
+    var ids = Object.keys(counts).filter(function(id){ return counts[id] > 0 && findSong(id); });
+    ids.sort(function(a,b){ return counts[b] - counts[a]; });
+    ids = ids.slice(0, 5);
+    topListEl.innerHTML = '';
+    if(ids.length === 0){
+      var e = document.createElement('div');
+      e.className = 'queue-empty';
+      e.textContent = 'Todavía no hay pedidos suficientes para el ranking.';
+      topListEl.appendChild(e);
+      return;
+    }
+    ids.forEach(function(id, idx){
+      var song = findSong(id);
+      if(!song) return;
+      var row = document.createElement('div');
+      row.className = 'top-row';
+      row.innerHTML =
+        '<div class="top-rank rank-'+(idx+1)+'">'+(idx+1)+'</div>' +
+        '<div class="queue-meta">' +
+          '<div class="queue-title">'+song.title+'</div>' +
+          '<div class="queue-artist">'+song.artist+'</div>' +
+        '</div>' +
+        '<div class="top-count">'+counts[id]+(counts[id]===1 ? ' pedido' : ' pedidos')+'</div>';
+      topListEl.appendChild(row);
+    });
+  }
+
   function renderAll(){
     renderNowPlaying();
     renderQueue();
+    renderTopRequested();
     renderCatalog();
     applyDesiredAudio();
   }
